@@ -49,6 +49,18 @@ __global__ void elementwise_add_f32x4_kernel(float *a, float *b, float *c, int N
 }
 
 
+
+// FP16 
+// ElementWise Add grid(N/256)
+// block(256) a:Nx1 b:Nx1 c:Nx1, c = elementwist_add(a, b)
+__global__ void elementwise_add_f16_kernel(half* a, half* b, half* c, int N) {
+  int idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < N) {
+    c[idx] = __hadd(a[idx], b[idx]);
+  }
+}
+
+
 #define STRINGFY(str) #str
 #define TORCH_BINDING_COMMON_EXTENSION(func)                                  \
   m.def(STRINGFY(func), &func, STRINGFY(func));
@@ -105,10 +117,12 @@ __global__ void elementwise_add_f32x4_kernel(float *a, float *b, float *c, int N
 
 TORCH_BINDING_ELEM_ADD(f32, torch::kFloat32, float, 1)
 TORCH_BINDING_ELEM_ADD(f32x4, torch::kFloat32, float, 4)
+TORCH_BINDING_ELEM_ADD(f16, torch::kHalf, half, 1)
 
 
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   TORCH_BINDING_COMMON_EXTENSION(elementwise_add_f32)
   TORCH_BINDING_COMMON_EXTENSION(elementwise_add_f32x4)
+  TORCH_BINDING_COMMON_EXTENSION(elementwise_add_f16)
 }
