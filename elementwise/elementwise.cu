@@ -12,6 +12,7 @@
 
 #define WARP_SIZE 32
 #define FLOAT4(value) (reinterpret_cast<float4 *>(&(value))[0])
+#define HALF2(value) (reinterpret_cast<half2 *>(&(value))[0])
 
 // grid -> block -> thread
 // gridDim
@@ -56,6 +57,24 @@ __global__ void elementwise_add_f32x4_kernel(float *a, float *b, float *c, int N
 __global__ void elementwise_add_f16_kernel(half* a, half* b, half* c, int N) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < N) {
+    c[idx] = __hadd(a[idx], b[idx]);
+  }
+}
+
+
+// FP16x2
+// ElementWise Add grid(N/256)
+// block(256) a:Nx1 b:Nx1, c = elementwise_add(a, b)
+__global__ void elementwise_add_f16x2_kernel(half* a, half* b, half* c, int N) {
+  int idx = 2 * (blockDim.x * blockIdx.x + threadIdx.x);
+  if ((idx + 1) < N) {
+    half2 reg_a = HALF2(a[idx]);
+    half2 reg_b = HALF2(b[idx]);
+    half2 reg_c;
+    reg_c.x = __hadd(reg_a.x, reg_b.x);
+    reg_c.y = __hadd(reg_a.y, reg_b.y);
+    HALF2(c[idx]) = reg_c;
+  }else{
     c[idx] = __hadd(a[idx], b[idx]);
   }
 }
@@ -118,6 +137,7 @@ __global__ void elementwise_add_f16_kernel(half* a, half* b, half* c, int N) {
 TORCH_BINDING_ELEM_ADD(f32, torch::kFloat32, float, 1)
 TORCH_BINDING_ELEM_ADD(f32x4, torch::kFloat32, float, 4)
 TORCH_BINDING_ELEM_ADD(f16, torch::kHalf, half, 1)
+TORCH_BINDING_ELEM_ADD(f16x2, torch::kHalf, half, 2)
 
 
 
@@ -125,4 +145,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   TORCH_BINDING_COMMON_EXTENSION(elementwise_add_f32)
   TORCH_BINDING_COMMON_EXTENSION(elementwise_add_f32x4)
   TORCH_BINDING_COMMON_EXTENSION(elementwise_add_f16)
+  TORCH_BINDING_COMMON_EXTENSION(elementwise_add_f16x2)
+
 }
